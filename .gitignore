@@ -1,2 +1,10 @@
 CLAUDE.md
 *.swp
+
+*.json
+*.o
+*.hex
+*.lst
+*.elf
+*.vcd
+sim

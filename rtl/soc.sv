@@ -1,12 +1,14 @@
 
-module picosoc(
+module picosoc #(
+	parameter MEM_LOG = 1'b0
+) (
 	output logic [5:0] leds, 
 
 	output logic uart_tx,
 	
 	input clk, resetn, uart_rx
 
-);
+); 
 
 	logic        trap;      
 	logic        mem_valid;
@@ -16,6 +18,7 @@ module picosoc(
 	logic [31:0] mem_wdata;
 	logic [ 3:0] mem_wstrb;
 	logic [31:0] mem_rdata;
+
 
 	picorv32 cpu(
 		.clk(clk),
@@ -47,15 +50,20 @@ module picosoc(
 				4'h0: ram_sel = 1;
 				4'h1: led_sel = 1;
 				4'h2: uart_sel = 1;
-				default: assert(0);
+				default: assert(0) else $fatal(0, "memory segment: %h is invalid\n", mem_addr[31-:4]);
 			endcase
 	end
 
 	always_ff @(posedge clk) begin
-		if ( mem_valid && !mem_ready )
+
+		if ( !resetn ) 
+			mem_ready <= 1'b0;
+
+		else if ( mem_valid && !mem_ready )
 			mem_ready <= 1'b1;
 		else 
 			mem_ready <= 1'b0;
+
 	end
 
 	localparam int RAM_WORDS = 2048;
@@ -82,5 +90,11 @@ module picosoc(
 			mem_rdata = ram_rdata;
 	end
 
+	generate if (MEM_LOG) 
+		always @(posedge mem_valid) 
+			if (mem_wstrb)
+				$display("addr=%h wstrb=%b wdata=%b\n", mem_addr, mem_wstrb, mem_wdata);
+
+	endgenerate
 
 endmodule

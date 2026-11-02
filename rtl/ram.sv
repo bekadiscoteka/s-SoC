@@ -4,6 +4,7 @@ module ram #(
 	parameter     INIT_FILE = "fw/test.hex"
 ) (
 	input  logic                     clk,
+
 	input  logic [$clog2(WORDS)-1:0] addr,   // индекс слова, а не байтовый адрес
 	input  logic [3:0]               we,     // разрешение записи на каждый байт
 	input  logic [31:0]              wdata,
@@ -12,10 +13,12 @@ module ram #(
 
 	logic [31:0] mem [0:WORDS-1];
 
+	/* logic [3:0][7:0] mem [0:WORDS-1]; */
+
 	initial $readmemh(INIT_FILE, mem);
 
 	always_ff @(posedge clk) begin
-
+		
 		rdata <= mem[addr];
 		
 		if (we[3])
