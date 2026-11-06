@@ -6,8 +6,8 @@ set -e
 cd "$(dirname "$0")/.."
 export PATH="$HOME/fpga/oss-cad-suite/bin:$PATH"
 
-TB=test/tb_ram.sv
-TOP=ram_tb
+TB=test/tb.sv
+TOP=tb
 RTL="rtl/picorv32.v rtl/ram.sv rtl/reset.sv rtl/soc.sv"
 
 sh fw/build.sh

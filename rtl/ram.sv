@@ -21,14 +21,10 @@ module ram #(
 		
 		rdata <= mem[addr];
 		
-		if (we[3])
-			mem[addr][31-:8] <= wdata[31-:8];
-		if (we[2])
-			mem[addr][31-8-:8] <= wdata[31-8-:8];
-		if (we[1])
-			mem[addr][31-16-:8] <= wdata[31-16-:8];
-		if (we[0])
-			mem[addr][31-24-:8] <= wdata[31-24-:8];
+		// Байт i занимает биты [8*i +: 8]; we[0] — младший байт (адрес 4k+0).
+		for (int i = 0; i < 4; i++)
+			if (we[i])
+				mem[addr][8*i +: 8] <= wdata[8*i +: 8];
 		
 	end
 
