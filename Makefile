@@ -1,4 +1,9 @@
 
+DEVICE := GW2AR-LV18QN88C8/I7
+FAMILY := GW2A-18C
+BOARD  := tangnano20k
+CST := tangnano20k.cst
+
 RTL := rtl/soc.sv rtl/picorv32.v rtl/uart.sv rtl/ram.sv
 TX_EXP ?= Hello, World!
 export TX_EXP
@@ -12,19 +17,44 @@ build/test_uart.vvp: test/tb_uart.sv rtl/uart.sv | build
 fw/test.hex: FORCE
 	$(MAKE) -C fw/
 
-build: 
-	@mkdir -p build/
 
 fw:
 	@mkdir -p  fw/
 
+
+
+ysys/netlist.json: $(RTL) fw/test.hex | ysys
+	yosys -m slang -l ysys/ysys.log -p "read_slang $(RTL); synth_gowin -top picosoc -json ysys/netlist.json; stat"
+
+nxtpnr/top_pnr.json: ysys/netlist.json $(CST) | nxtpnr
+	nextpnr-himbaechel --json $< --write $@ \
+		--device $(DEVICE) --vopt family=$(FAMILY) --vopt cst=$(CST) \
+		--freq 27 --log nxtpnr/nxtpnr.log --quiet
+
+top.fs: nxtpnr/top_pnr.json
+	gowin_pack -d $(FAMILY) -o top.fs $<
+
+
+
+build: 
+	@mkdir -p build/
+
+ysys: 
+	@mkdir -p ysys/
+nxtpnr: 
+	@mkdir -p nxtpnr/
+
 clean: 
 	@rm -rf build/
-	@rm *.vcd
+	@rm -f *.vcd
 	$(MAKE) clean -C fw/
 
 tests: build/test_uart.vvp build/test_soc.vvp
 	vvp build/test_uart.vvp
 	vvp build/test_soc.vvp
 
-.PHONY: tests clean FORCE
+load: top.fs
+	openFPGALoader -b $(BOARD) top.fs
+
+
+.PHONY: tests clean FORCE load

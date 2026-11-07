@@ -11,12 +11,13 @@ typedef unsigned int size_t;
 
 const char str[] = TX_EXP;
 
-size_t strlen(const char *s) {
+static size_t strlen(const char *s) {
 	size_t i = 0;
 	while (*s++ != '\0') 
 		i++;
 	return i;
 }
+
 
 int main(void) {
 	*led = 0xF0;

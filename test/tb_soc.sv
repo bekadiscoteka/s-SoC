@@ -13,7 +13,7 @@ module tb_soc;
 	int errors = 0;
 
 	logic	uart_rx, uart_tx,
-		clk=0, resetn=1;	
+		clk=0, reset=0;	
 
 	logic [5:0] leds;
 
@@ -27,9 +27,9 @@ module tb_soc;
 		//$dumpfile("sim.vcd");
 		//$dumpvars(0, tb_soc);
 
-		resetn = 0;
+		reset = 1;
 		#3us;
-		resetn = 1;
+		reset = 0;
 
 		#30ms;
 
@@ -96,7 +96,7 @@ module tb_soc;
 	end
 
 	initial begin
-		@(posedge resetn);
+		@(negedge reset);
 
 		errors++;  /*in advance if there won't be any write for LED*/
 		@(leds);

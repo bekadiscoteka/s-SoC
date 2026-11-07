@@ -6,11 +6,11 @@ module picosoc #(
 
 	output logic uart_tx,
 	
-	input clk, resetn, uart_rx
+	input clk, reset, uart_rx
 
 ); 
 
-	
+	wire resetn = ~reset;
 
 	/*======== PicoRV32 cpu ============== */
 

@@ -9,3 +9,10 @@ CLAUDE.md
 *.vcd
 sim
 build/
+
+# FPGA build artifacts
+*.fs
+*.log
+*.vvp
+ysys/
+nxtpnr/
