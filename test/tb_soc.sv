@@ -94,6 +94,19 @@ module tb_soc;
 		end else
 			$display("[%0t] TX: %02h '%c'", $time, got, got);
 	end
+
+	initial begin
+		@(posedge resetn);
+
+		errors++;  /*in advance if there won't be any write for LED*/
+		@(leds);
+		errors--;  
+		
+		if (leds !== 6'b11_0000) 
+			errors++;
+
+		$info("LED: expected: %b, got: %b", 6'b11_0000, leds);
+	end
 	
 	
 endmodule
