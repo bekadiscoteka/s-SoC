@@ -4,6 +4,14 @@
 `define TX_EXP "Hello"
 `endif
 
+`ifndef LED_EXP 
+`define LED_EXP F0 
+`endif
+
+`ifndef INIT_FILE
+`define INIT_FILE "fw/program.hex"
+`endif
+
 module tb_soc;
 	parameter LOG = 1;
 
@@ -11,21 +19,22 @@ module tb_soc;
 	localparam real BIT_NS = 1.0e9 / BAUD;     // 8680,6 нс
 
 	int errors = 0;
+	reg [7:0] led_exp = `LED_EXP;
 
 	logic	uart_rx, uart_tx,
 		clk=0, reset=0;	
+	logic [5:0] leds_n;
 
-	logic [5:0] leds;
 
-	picosoc #( .BAUD(BAUD) ) soc(.*);
-
+	picosoc #( .BAUD(BAUD), .INIT_FILE(`INIT_FILE) ) soc(.*);
+	wire [5:0] leds = soc.leds;
 
 
 	initial forever #18.5 clk <= ~clk;	
 
 	initial begin
-		//$dumpfile("sim.vcd");
-		//$dumpvars(0, tb_soc);
+		$dumpfile("soc.vcd");
+		$dumpvars(0, tb_soc);
 
 		reset = 1;
 		#3us;
@@ -101,11 +110,13 @@ module tb_soc;
 		errors++;  /*in advance if there won't be any write for LED*/
 		@(leds);
 		errors--;  
-		
-		if (leds !== 6'b11_0000) 
-			errors++;
 
-		$info("LED: expected: %b, got: %b", 6'b11_0000, leds);
+		if (leds !== led_exp[5:0]) begin
+			errors++;
+			$info("Unexpected LED value");
+		end
+
+		$info("LED: expected: %b, got: %b", led_exp[5:0], leds);
 	end
 	
 	

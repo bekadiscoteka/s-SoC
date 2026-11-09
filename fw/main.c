@@ -2,10 +2,20 @@
 #define TX_EXP "Hello from C program"
 #endif
 
-#define led	(volatile char*)0x10000000
-#define uart	(volatile char*)0x20000000
-#define status	(volatile char*)0x20000004
+#ifndef LED_EXP 
+#define LED_EXP 0xFF
+#endif
 
+#define FREQ	27000000
+
+#define led		(volatile char*)0x10000000
+#define uart		(volatile char*)0x20000000
+#define status_addr	(volatile char*)0x20000004
+#define UART_BUSY	( *status_addr >> 1 ) 
+
+
+
+extern void wait(const unsigned int);
 typedef unsigned int size_t; 
 
 
@@ -18,13 +28,28 @@ static size_t strlen(const char *s) {
 	return i;
 }
 
-
-int main(void) {
-	*led = 0xF0;
+static size_t puts(const char *s) {
+	while (UART_BUSY)
+		;
 	for (size_t i=0; i < strlen(str); i++) {
 		*uart = str[i]; 
-		while ((*status >> 1) != 0)
+		while (UART_BUSY)
 			;
 	}
+}
+
+int main(void) {
+	puts(TX_EXP);
+	
+	*led = LED_EXP;
+	volatile unsigned int cnt = 0;
+	while (1) {
+		wait(FREQ / 12);
+		cnt = 0;
+		
+		*led ^= 0xFF;
+	}
+
+	
 	return 0;
 }

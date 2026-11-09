@@ -1,8 +1,9 @@
 
 module picosoc #(
-	parameter int BAUD = 9600
+	parameter int BAUD = 9600,
+	parameter INIT_FILE = "fw/program.hex"
 ) (
-	output logic [5:0] leds, 
+	output wire [5:0] leds_n, 
 
 	output logic uart_tx,
 	
@@ -11,6 +12,9 @@ module picosoc #(
 ); 
 
 	wire resetn = ~reset;
+
+	logic [6:0] leds;
+	assign leds_n = ~leds;
 
 	/*======== PicoRV32 cpu ============== */
 
@@ -84,7 +88,7 @@ module picosoc #(
 
 	assign ram_we = (ram_sel && !mem_ready) ? mem_wstrb : '0;
 
-	ram #(.WORDS(RAM_WORDS), .INIT_FILE("fw/test.hex")) ram0(
+	ram #(.WORDS(RAM_WORDS), .INIT_FILE(INIT_FILE)) ram0(
 		.clk(clk),
 		.addr(ram_addr),
 		.we(ram_we),
