@@ -36,9 +36,6 @@ module tb_soc;
 		$dumpfile("soc.vcd");
 		$dumpvars(0, tb_soc);
 
-		reset = 1;
-		#3us;
-		reset = 0;
 
 		#30ms;
 

@@ -1,3 +1,22 @@
+module sys_reset #(
+	parameter HOLD = 3
+) (
+	output logic resetn,
+	input clk
+);
+	logic [$clog2(HOLD)-1:0] count;
+	always_ff @(posedge clk) begin
+		if (count == 0) 
+			resetn <= 1;	
+		else 
+			count <= count - 1;	
+	end
+
+	initial begin
+		resetn = 1'b0;
+		count = HOLD;	
+	end
+endmodule
 
 module picosoc #(
 	parameter int BAUD = 9600,
@@ -10,11 +29,19 @@ module picosoc #(
 	input clk, reset, uart_rx
 
 ); 
+	
 
-	wire resetn = ~reset;
 
-	logic [6:0] leds;
-	assign leds_n = ~leds;
+
+
+	/**
+	**** reset logic ****
+	**/
+	
+	wire sys_resetn;
+	sys_reset sysrst_inst( .resetn(sys_resetn), .clk(clk) );
+	
+	wire resetn = ~reset & sys_resetn;
 
 	/*======== PicoRV32 cpu ============== */
 
@@ -98,11 +125,14 @@ module picosoc #(
 
 	/* ======== LED register ======== */
 
+	logic [5:0] leds;
+	assign leds_n = ~leds;
+
 	always_ff @(posedge clk) begin
 		if (!resetn) 
 			leds <= '0;
 		else if ( mem_wstrb[0] && led_sel )
-			leds <= mem_wdata;
+			leds <= mem_wdata[5:0];
 	end
 
 	/* ======== UART module ======== */
