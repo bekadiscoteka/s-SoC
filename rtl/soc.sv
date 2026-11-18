@@ -1,12 +1,16 @@
+`default_nettype none
 module sys_reset #(
-	parameter HOLD = 3
+	parameter HOLD = 1000
 ) (
 	output logic resetn,
-	input clk
+	input clk, reset
 );
-	logic [$clog2(HOLD)-1:0] count;
+	logic [$clog2(HOLD):0] count;
 	always_ff @(posedge clk) begin
-		if (count == 0) 
+		if (reset) begin 
+			count <= HOLD;
+			resetn <= 0;
+		end else if (count == 0) 
 			resetn <= 1;	
 		else 
 			count <= count - 1;	
@@ -37,11 +41,10 @@ module picosoc #(
 	/**
 	**** reset logic ****
 	**/
+
+	wire resetn;	
+	sys_reset sysrst_inst( .resetn(resetn), .clk(clk), .reset(reset) );
 	
-	wire sys_resetn;
-	sys_reset sysrst_inst( .resetn(sys_resetn), .clk(clk) );
-	
-	wire resetn = ~reset & sys_resetn;
 
 	/*======== PicoRV32 cpu ============== */
 

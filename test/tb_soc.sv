@@ -36,7 +36,6 @@ module tb_soc;
 		$dumpfile("soc.vcd");
 		$dumpvars(0, tb_soc);
 
-
 		#30ms;
 
 		// Программа должна закончиться ebreak; дошли сюда, значит CPU завис.
