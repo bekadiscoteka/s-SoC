@@ -8,8 +8,8 @@
 `define LED_EXP F0 
 `endif
 
-`ifndef INIT_FILE
-`define INIT_FILE "fw/program.hex"
+`ifndef BOOTFILE
+`define BOOTFILE "fw/boot.hex"
 `endif
 
 module tb_soc;
@@ -26,7 +26,7 @@ module tb_soc;
 	logic [5:0] leds_n;
 
 
-	picosoc #( .BAUD(BAUD), .INIT_FILE(`INIT_FILE) ) soc(.*);
+	picosoc #( .BAUD(BAUD), .BOOTFILE(`BOOTFILE) ) soc(.*);
 	wire [5:0] leds = soc.leds;
 
 

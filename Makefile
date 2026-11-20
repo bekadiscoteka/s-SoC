@@ -4,7 +4,7 @@ FAMILY := GW2A-18C
 BOARD  := tangnano20k
 CST := tangnano20k.cst
 
-RTL := rtl/soc.sv rtl/picorv32.v rtl/uart.sv rtl/ram.sv
+RTL := rtl/soc.sv rtl/picorv32.v rtl/uart.sv rtl/ram.sv rtl/rom.sv
 TX_EXP ?= Hello, World!
 LED_EXP ?= F0 
 
@@ -12,7 +12,10 @@ export TX_EXP
 export LED_EXP
 
 build/test_soc.vvp: test/tb_soc.sv $(RTL) fw/test.hex | build
-	iverilog -g2012 test/tb_soc.sv -DTX_EXP='"$(TX_EXP)"' -DLED_EXP='8'\''h$(LED_EXP)' -DINIT_FILE='"fw/test.hex"' $(RTL) -o $@ 
+	iverilog -g2012 test/tb_soc.sv -DTX_EXP='"$(TX_EXP)"' -DLED_EXP='8'\''h$(LED_EXP)' -DBOOTFILE='"fw/test.hex"' $(RTL) -o $@ 
+
+build/test_crt0.vvp: test/tb_crt0.sv $(RTL) fw/crt0_test.hex | build
+	iverilog -g2012 test/tb_crt0.sv -DBOOTFILE='"fw/crt0_test.hex"' $(RTL) -o $@
 
 build/test_uart.vvp: test/tb_uart.sv rtl/uart.sv | build
 	iverilog -g2012 $^ -o $@
@@ -20,8 +23,11 @@ build/test_uart.vvp: test/tb_uart.sv rtl/uart.sv | build
 fw/test.hex: FORCE
 	$(MAKE) test.hex -C fw/
 
-fw/program.hex: FORCE
-	$(MAKE) program.hex -C fw/
+fw/crt0_test.hex: FORCE
+	$(MAKE) crt0_test.hex -C fw/
+
+fw/boot.hex: FORCE
+	$(MAKE) boot.hex -C fw/
 
 
 fw:
@@ -29,7 +35,7 @@ fw:
 
 
 
-ysys/netlist.json: $(RTL) fw/program.hex | ysys
+ysys/netlist.json: $(RTL) fw/boot.hex | ysys
 	yosys -m slang -l ysys/ysys.log -p "read_slang $(RTL); synth_gowin -top picosoc -json ysys/netlist.json; stat"
 
 nxtpnr/top_pnr.json: ysys/netlist.json $(CST) | nxtpnr
@@ -55,9 +61,10 @@ clean:
 	@rm -f *.vcd *.fs
 	$(MAKE) clean -C fw/
 
-tests: build/test_uart.vvp build/test_soc.vvp
+tests: build/test_uart.vvp build/test_soc.vvp build/test_crt0.vvp
 	vvp build/test_uart.vvp
 	vvp build/test_soc.vvp
+	vvp build/test_crt0.vvp
 
 load: top.fs
 	openFPGALoader -b $(BOARD) top.fs

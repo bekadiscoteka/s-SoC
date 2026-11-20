@@ -1,7 +1,7 @@
 // Синхронная RAM с побайтовой записью: данные чтения появляются на следующем такте.
 module ram #(
 	parameter int WORDS     = 2048,
-	parameter     INIT_FILE = "fw/test.hex"
+	parameter BOOTFILE = "fw/boot.hex"
 ) (
 	input  logic                     clk,
 
@@ -14,8 +14,6 @@ module ram #(
 	logic [31:0] mem [0:WORDS-1];
 
 	/* logic [3:0][7:0] mem [0:WORDS-1]; */
-
-	initial $readmemh(INIT_FILE, mem);
 
 	always_ff @(posedge clk) begin
 		

@@ -24,7 +24,7 @@ endmodule
 
 module picosoc #(
 	parameter int BAUD = 9600,
-	parameter INIT_FILE = "fw/program.hex"
+	parameter BOOTFILE = "fw/boot.hex"
 ) (
 	output wire [5:0] leds_n, 
 
@@ -75,19 +75,24 @@ module picosoc #(
 
 	/* =========== MMIO decoder ============== */
 
-	logic ram_sel;
-	logic led_sel;
-	logic uart_sel;
+	logic	ram_sel,
+		rom_sel,
+		led_sel,
+		uart_sel;
+
 	wire uart_reg_sel = mem_addr[2];
 
 	always_comb begin
+		rom_sel  = 1'b0;
 		ram_sel  = 1'b0;
 		led_sel  = 1'b0;
 		uart_sel = 1'b0;
+
 		
 		if (mem_valid) 
 			unique case( mem_addr[31-:4] )
-				4'h0: ram_sel = 1;
+				4'h0: rom_sel = 1;
+				4'h8: ram_sel = 1;
 				4'h1: led_sel = 1;
 				4'h2: uart_sel = 1;
 				default: assert(0) else $fatal(0, "memory segment: %h is invalid\n", mem_addr[31-:4]);
@@ -105,10 +110,25 @@ module picosoc #(
 			mem_ready <= 1'b0;
 
 	end
+	/* ======= ROM module ============= */
+
+	localparam int ROM_WORDS = 1024;
+
+	logic [$clog2(ROM_WORDS)-1:0] rom_addr;
+	logic [31:0]                  rom_rdata;
+
+	rom #(.BOOTFILE(BOOTFILE), .WORDS(ROM_WORDS)) rom_inst(
+		.clk(clk),
+		.addr(rom_addr),
+		.rdata(rom_rdata)
+	);
+
+	assign rom_addr = mem_addr >> 2;
+
 
 	/* ======== RAM module ============= */
 
-	localparam int RAM_WORDS = 2048;
+	localparam int RAM_WORDS = 8192;
 
 	logic [$clog2(RAM_WORDS)-1:0] ram_addr;
 	logic [3:0]                   ram_we;
@@ -118,7 +138,7 @@ module picosoc #(
 
 	assign ram_we = (ram_sel && !mem_ready) ? mem_wstrb : '0;
 
-	ram #(.WORDS(RAM_WORDS), .INIT_FILE(INIT_FILE)) ram0(
+	ram #(.WORDS(RAM_WORDS)) ram_inst(
 		.clk(clk),
 		.addr(ram_addr),
 		.we(ram_we),
@@ -181,8 +201,10 @@ module picosoc #(
 	/* ======= mem_rdata bus controller ========= */
 
 	always_comb begin
-		mem_rdata = 32'h0;
-		if (ram_sel)
+		mem_rdata = '0;
+		if (rom_sel) 
+			mem_rdata = rom_rdata;
+		else if (ram_sel)
 			mem_rdata = ram_rdata;
 		else if (led_sel)
 			mem_rdata = { 26'd0, leds };
@@ -192,8 +214,6 @@ module picosoc #(
 			else 
 				mem_rdata = { 24'd0, rx_data };
 	end
-
-	/* ======== test log ==========*/
 
 
 endmodule
