@@ -5,9 +5,18 @@ module sys_reset #(
 	output logic resetn,
 	input clk, reset
 );
+	// Кнопка асинхронна к clk: два триггера подряд, как rx в uart.sv.
+	// reset_meta может быть метастабильным, поэтому дальше читается только reset_s.
+	logic reset_meta = 1'b0;
+	logic reset_s    = 1'b0;
+	always_ff @(posedge clk) begin
+		reset_meta <= reset;
+		reset_s    <= reset_meta;
+	end
+
 	logic [$clog2(HOLD):0] count;
 	always_ff @(posedge clk) begin
-		if (reset) begin 
+		if (reset_s) begin
 			count <= HOLD;
 			resetn <= 0;
 		end else if (count == 0) 
@@ -23,7 +32,7 @@ module sys_reset #(
 endmodule
 
 module picosoc #(
-	parameter int BAUD = 9600,
+	parameter int BAUD = 115200,
 	parameter BOOTFILE = "fw/boot.hex"
 ) (
 	output wire [5:0] leds_n, 
@@ -167,9 +176,13 @@ module picosoc #(
 	logic [7:0] rx_data;
 	
         logic       uart_rx_valid;
-        logic       uart_rx_ack;	
+        logic       uart_rx_ack;
+	logic       uart_rx_overrun;
+	logic       uart_rx_overrun_clr;
 
-	assign uart_status = { 6'b0, uart_tx_busy, uart_rx_valid };
+	// бит 0: пришёл байт, бит 1: занят отправкой,
+	// бит 2: переполнение приёма, сбрасывается записью 1 в этот же бит
+	assign uart_status = { 5'b0, uart_rx_overrun, uart_tx_busy, uart_rx_valid };
 
         uart #(
                 .CLK_HZ(27_000_000),
@@ -186,6 +199,8 @@ module picosoc #(
                 .rx      (uart_rx),   
                 .rx_data (rx_data),
                 .rx_valid(uart_rx_valid),
+                .rx_overrun(uart_rx_overrun),
+                .rx_overrun_clr(uart_rx_overrun_clr),
                 .rx_ack  (uart_rx_ack)
         );
 
@@ -196,6 +211,7 @@ module picosoc #(
 
 	assign uart_tx_start	=  mem_wstrb[0] && uart_sel && !uart_reg_sel && !mem_ready;	
 	assign uart_rx_ack	= !mem_wstrb[0] && uart_sel && !uart_reg_sel &&  mem_ready;
+	assign uart_rx_overrun_clr = mem_wstrb[0] && uart_sel && uart_reg_sel && !mem_ready && mem_wdata[2];
 
 
 	/* ======= mem_rdata bus controller ========= */

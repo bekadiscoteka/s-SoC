@@ -20,6 +20,8 @@ module uart_tb;
 	logic       rx = 1;                       // линия в покое: 1
 	logic [7:0] rx_data;
 	logic       rx_valid;
+	logic       rx_overrun;
+	logic       rx_overrun_clr = 0;
 	logic       rx_ack = 0;
 
 	int errors = 0;
@@ -94,8 +96,9 @@ module uart_tb;
 		#(bit_ns);
 	endtask
 
-	// Дождаться байта, сверить, подтвердить чтение импульсом rx_ack.
-	task automatic read_byte(input logic [7:0] exp);
+	// Дождаться байта, сверить данные и флаг переполнения,
+	// подтвердить чтение импульсом rx_ack.
+	task automatic read_byte(input logic [7:0] exp, input logic exp_overrun = 1'b0);
 		@(negedge clk);
 		while (!rx_valid) @(negedge clk);
 		if (rx_data !== exp) begin
@@ -103,6 +106,10 @@ module uart_tb;
 			errors++;
 		end else
 			$display("[%0t] RX: %02h '%c'", $time, rx_data, rx_data);
+		if (rx_overrun !== exp_overrun) begin
+			$display("[%0t] RX: rx_overrun = %b, ждали %b", $time, rx_overrun, exp_overrun);
+			errors++;
+		end
 		rx_ack = 1;
 		@(negedge clk);
 		rx_ack = 0;
@@ -110,6 +117,25 @@ module uart_tb;
 			$display("[%0t] RX: rx_valid не снялся после rx_ack", $time);
 			errors++;
 		end
+		if (rx_overrun !== exp_overrun) begin
+			$display("[%0t] RX: rx_ack изменил rx_overrun", $time);
+			errors++;
+		end
+	endtask
+
+	task automatic check_overrun(input logic exp, input string what);
+		if (rx_overrun !== exp) begin
+			$display("[%0t] RX: %s: rx_overrun = %b, ждали %b", $time, what, rx_overrun, exp);
+			errors++;
+		end
+	endtask
+
+	task automatic clear_overrun();
+		@(negedge clk);
+		rx_overrun_clr = 1;
+		@(negedge clk);
+		rx_overrun_clr = 0;
+		check_overrun(1'b0, "после явного сброса");
 	endtask
 
 	// ---------------- Сценарий ----------------
@@ -147,11 +173,49 @@ module uart_tb;
 			for (int i = 0; i < MSG.len(); i++) read_byte(MSG[i]);
 		join
 
-		// 3. RX: два байта без чтения. По задумке модуля старый заменяется новым.
+		// 3. RX: два байта без чтения. По задумке модуля старый заменяется новым,
+		//    и это видно по rx_overrun. В сценарии 2 read_byte проверяет, что флага нет.
 		$display("--- RX: переполнение ---");
 		drive_byte(8'hA5, BIT_NS);
 		drive_byte(8'h3C, BIT_NS);
-		read_byte(8'h3C);
+		read_byte(8'h3C, 1'b1);
+
+		// Чтение флаг не снимает: следующий байт читается ещё с ним.
+		drive_byte(8'h5A, BIT_NS);
+		read_byte(8'h5A, 1'b1);
+		clear_overrun();
+
+		// 3а. Байт теряется между чтением статуса и чтением данных.
+		$display("--- RX: потеря между статусом и данными ---");
+		drive_byte(8'h11, BIT_NS);
+		@(negedge clk);
+		check_overrun(1'b0, "статус до потери");
+		drive_byte(8'h22, BIT_NS);
+		read_byte(8'h22, 1'b1);
+		clear_overrun();
+
+		// 3б. Сброс в том же такте, что и новая потеря: потеря важнее.
+		//     clr держим всё время, поэтому флаг обязан появиться ровно на такт.
+		$display("--- RX: сброс одновременно с потерей ---");
+		drive_byte(8'h33, BIT_NS);
+		begin: clear_vs_set
+			logic seen;
+			logic done;
+			seen = 0;
+			done = 0;
+			@(negedge clk);
+			rx_overrun_clr = 1;
+			fork
+				begin drive_byte(8'h44, BIT_NS); done = 1; end
+				while (!done) begin @(negedge clk); if (rx_overrun) seen = 1; end
+			join
+			rx_overrun_clr = 0;
+			if (!seen) begin
+				$display("[%0t] RX: сброс затёр одновременную потерю", $time);
+				errors++;
+			end
+		end
+		read_byte(8'h44);
 
 		// TODO 4. TX: tx_start, пока tx_busy, должен игнорироваться.
 		//         Что именно проверить: какой байт и сколько байт увидит монитор?

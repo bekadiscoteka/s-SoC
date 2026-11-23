@@ -16,6 +16,8 @@ module uart #(
 	input  logic       rx,
 	output logic [7:0] rx_data,
 	output logic       rx_valid,   // держится, пока не придёт rx_ack
+	output logic       rx_overrun, // байт потерян; держится до rx_overrun_clr, чтение данных его не снимает
+	input  logic       rx_overrun_clr, // импульс на один такт: сбросить rx_overrun
 	input  logic       rx_ack      // импульс на один такт: байт прочитан
 );
 
@@ -87,10 +89,16 @@ module uart #(
 			rx_shift <= '0;
 			rx_data  <= '0;
 			rx_valid <= 1'b0;
+			rx_overrun <= 1'b0;
 		end else begin
 			// Подтверждение чтения. Новый байт ниже в том же такте важнее.
 			if (rx_ack)
 				rx_valid <= 1'b0;
+
+			// Переполнение снимается только явно: байт может потеряться между
+			// чтением статуса и чтением данных. Новая потеря ниже в том же такте важнее.
+			if (rx_overrun_clr)
+				rx_overrun <= 1'b0;
 
 			unique case (rx_state)
 				RX_IDLE:
@@ -130,6 +138,9 @@ module uart #(
 						if (rx_s) begin
 							rx_data  <= rx_shift;   // непрочитанный старый байт заменяется
 							rx_valid <= 1'b1;
+							// Старый байт ещё лежит и в этом такте не читается: он потерян.
+							if (rx_valid && !rx_ack)
+								rx_overrun <= 1'b1;
 						end
 					end
 			endcase

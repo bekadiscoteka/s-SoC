@@ -1,35 +1,33 @@
+# Прошивки:
+#   boot.hex  загрузчик, лежит в ROM и попадает в битстрим ($readmemh в rom.sv)
+#   app.bin   программа пользователя, грузится в RAM по UART (make load)
 
 PREFIX := riscv64-unknown-elf-
-PROG := wait.S main.c
-TEST := test.c 
+CFLAGS := -march=rv32i -mabi=ilp32 -nostdlib -ffreestanding -O2 -Wall
 
-boot.hex: boot.ld boot.S boot.c | objdump
-	$(PREFIX)gcc -march=rv32i -mabi=ilp32 -nostdlib -Tboot.ld -o boot.elf boot.S boot.c
-	$(PREFIX)objcopy -O verilog --verilog-data-width=4 boot.elf $@  
-	$(PREFIX)objdump -d boot.elf > objdump/boot_dis.lst 
-	$(PREFIX)objdump -h boot.elf > objdump/boot_hex.lst 
+BOOT_SRC := boot.S boot.c
+APP_LD   := app.ld
+APP_SRC  := crt0.S main.c wait.S
 
-crt0_test.hex: boot.ld boot.S crt0_test.c | objdump
-	$(PREFIX)gcc -march=rv32i -mabi=ilp32 -nostdlib -Tboot.ld -o crt0_test.elf boot.S crt0_test.c
-	$(PREFIX)objcopy -O verilog --verilog-data-width=4 crt0_test.elf $@
-	$(PREFIX)objdump -d crt0_test.elf > objdump/crt0_test_dis.lst
-	$(PREFIX)objdump -h crt0_test.elf > objdump/crt0_test_hex.lst
+all: boot.hex app.bin
 
-program.hex: link.ld start.S $(PROG) | objdump 
-	$(PREFIX)gcc -march=rv32i -mabi=ilp32 -nostdlib -Tlink.ld -DTX_EXP='"$(TX_EXP)"' -DLED_EXP='0x$(LED_EXP)' -o program.elf start.S $(PROG)
-	$(PREFIX)objcopy -O verilog --verilog-data-width=4 program.elf $@  
-	$(PREFIX)objdump -d program.elf > objdump/dis.lst 
-	$(PREFIX)objdump -h program.elf > objdump/hex.lst 
+boot.elf: boot.ld $(BOOT_SRC)
+	$(PREFIX)gcc $(CFLAGS) -Tboot.ld -o $@ $(BOOT_SRC)
 
-test.hex: boot.ld boot.S $(TEST) | objdump
-	$(PREFIX)gcc -march=rv32i -mabi=ilp32 -nostdlib -Tboot.ld -DTX_EXP='"$(TX_EXP)"' -DLED_EXP='0x$(LED_EXP)' -o test.elf boot.S $(TEST)
-	$(PREFIX)objcopy -O verilog --verilog-data-width=4 test.elf $@  
-	$(PREFIX)objdump -d test.elf > objdump/test_dis.lst 
-	$(PREFIX)objdump -h test.elf > objdump/test_hex.lst 
+app.elf: $(APP_LD) $(APP_SRC)
+	$(PREFIX)gcc $(CFLAGS) -T$(APP_LD) -o $@ $(APP_SRC)
 
-objdump:
-	@mkdir -p objdump
+boot.hex: boot.elf
+	$(PREFIX)objcopy -O verilog --verilog-data-width=4 $< $@
 
-clean: 
-	@rm *.elf *.hex 
-	@rm -rf objdump
+app.bin: app.elf
+	$(PREFIX)objcopy -O binary $< $@
+
+# Листинг для отладки: make boot.lst / make app.lst
+%.lst: %.elf
+	$(PREFIX)objdump -h -d $< > $@
+
+clean:
+	rm -f *.elf *.hex *.bin *.lst
+
+.PHONY: all clean

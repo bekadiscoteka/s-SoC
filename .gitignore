@@ -16,3 +16,5 @@ build/
 *.vvp
 ysys/
 nxtpnr/
+*.bin
+__pycache__/

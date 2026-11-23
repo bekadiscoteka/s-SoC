@@ -8,6 +8,8 @@ MEMORY
 }
 
 SECTIONS {
+	rom_origin = ORIGIN(ROM);
+	ram_origin = ORIGIN(RAM);
 	.text : 
 	{
 		*(.text.init)
